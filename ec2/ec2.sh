@@ -101,17 +101,16 @@ aws ec2 create-route \
 	--nat-gateway-id $ng_id
 echo "Created routes for route table"
 # Assosciate the route table to the public subnet
-aws ec2 associate-route-table \
+association_route_id=`aws ec2 associate-route-table \
 	--route-table-id $route_table_id_pvt \
-	--subnet-id  $subnet_id_pvt
+	--subnet-id  $subnet_id_pvt | jq `
 echo "Assosciated the route table to public subnet"
 
 # Create a ec2 instance in private subnet and it will be able to access internet now
 instance_id_pvt=`aws ec2 run-instances \
-		--image-id ammi-0715c1897453cabd1 \
+		--image-id ami-0715c1897453cabd1 \
 		--count 1 --instance-type t2.micro --key-name MyKeyPair \
 		--security-group-id $sg_id \
 		--subnet-id $subnet_id_pvt \
 		--block-device-mappings '[{"DeviceName":"/dev/xvda","Ebs":{"VolumeSize":20,"VolumeType":"gp2"}}]' | jq '.Instances[0].InstanceId' | tr -d '"'`
 echo "Created instance in pvt subnet"
-
