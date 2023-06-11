@@ -80,16 +80,22 @@ resource "aws_instance" "public_instance" {
 	security_groups = [aws_security_group.mysg.id]
 	subnet_id = aws_subnet.publicsn.id
 	associate_public_ip_address = true
-	ebs_block_device {
-		device_name = "/dev/xvda"
+	root_block_device {
 		delete_on_termination = true
-		volume_size = 20
+		volume_size = 8
 		volume_type = "gp2"
+		tags = {
+			Name = "MyRootInstance"
+		}
 	}
-}
-
-output "public_ip_address" {
-	value = aws_instance.public_instance.public_ip
-	description = "Public IP of instance in public subnet"
+	ebs_block_device {
+		device_name = "/dev/sdb"
+		delete_on_termination = false
+		volume_size = 2
+		volume_type = "gp2"
+		tags = {
+			Name = "MyEbsInstance"
+		}
+	}
 }
 
