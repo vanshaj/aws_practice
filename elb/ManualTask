@@ -1,0 +1,7 @@
+Create a target group
+And Create a Load balancer
+
+Load Balancer require 2 Public Subnets in Different AZ for a VPC (Both must be public)
+i.e Internet gateway must be attached to it 
+and in both the Availability zones there must be an instance
+Article on setup of application load balancer for instances in private subnet https://repost.aws/knowledge-center/public-load-balancer-private-ec2
