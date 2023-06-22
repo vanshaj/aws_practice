@@ -17,14 +17,6 @@ resource "aws_vpc" "myvpc" {
 	}
 }
 
-resource "aws_subnet" "publicsn" {
-	vpc_id = aws_vpc.myvpc.id
-	availability_zone = "us-east-1a"
-	cidr_block = "172.32.1.0/24"
-	tags = {
-		name = "public subnet"
-	}
-}
 resource "aws_subnet" "privatesn" {
 	vpc_id = aws_vpc.myvpc.id
 	availability_zone = "us-east-1a"
@@ -34,13 +26,19 @@ resource "aws_subnet" "privatesn" {
 	}
 }
 
+resource "aws_key_pair" "key" {
+	key_name = "MyKey"
+	public_key = var.ssh_public_key
+}
+
 resource "aws_internet_gateway" "ig" {
 	vpc_id = aws_vpc.myvpc.id
 	tags = {
 		Name = "Gateway"
 	}
 }
-resource "aws_route_table" "public_route_table" {
+
+resource "aws_route_table" "pbroutetable" {
 	vpc_id = aws_vpc.myvpc.id
 	route {
 		cidr_block = "0.0.0.0/0"
@@ -51,13 +49,8 @@ resource "aws_route_table" "public_route_table" {
 	}
 }
 resource "aws_route_table_association" "public_ass" {
-	subnet_id = aws_subnet.publicsn.id
-	route_table_id = aws_route_table.public_route_table.id
-}
-
-resource "aws_key_pair" "key" {
-	key_name = "MyKey"
-	public_key = var.ssh_public_key
+	subnet_id = aws_subnet.privatesn.id
+	route_table_id = aws_route_table.pbroutetable.id
 }
 
 resource "aws_security_group" "mysg" {
@@ -71,21 +64,29 @@ resource "aws_security_group" "mysg" {
 		protocol = "tcp"
 		cidr_blocks = ["0.0.0.0/0"]
 	}
+	ingress {
+		description = "Allow HTTP traffic"
+		to_port = 80
+		from_port = 80
+		protocol = "tcp"
+		cidr_blocks = ["172.32.0.0/16"]
+	}
 	egress {
-	    from_port        = 0
-	    to_port          = 0
-	    protocol         = "-1"
-	    cidr_blocks      = ["0.0.0.0/0"]
-	    ipv6_cidr_blocks = ["::/0"]
+		description = "all outgoing traffic"
+		to_port = 0
+		from_port = 0
+		protocol = "-1"
+		cidr_blocks = ["0.0.0.0/0"]
 	}
 }
 
-resource "aws_instance" "public_instance" {
+resource "aws_instance" "private_instance" {
+	count = 2
 	ami = "ami-0715c1897453cabd1"
 	instance_type = "t2.micro"
 	key_name = aws_key_pair.key.key_name
 	security_groups = [aws_security_group.mysg.id]
-	subnet_id = aws_subnet.publicsn.id
+	subnet_id = aws_subnet.privatesn.id
 	associate_public_ip_address = true
 	root_block_device {
 		delete_on_termination = true
@@ -104,5 +105,17 @@ resource "aws_instance" "public_instance" {
 			Name = "MyEbsInstance"
 		}
 	}
+	user_data = <<-EOF
+	#!/bin/bash
+	sudo yum update -y
+	sudo yum install nginx -y
+	sudo systemctl enable nginx
+	sudo rm /usr/share/nginx/html/index.html
+	sudo touch /usr/share/nginx/html/index.html
+	sudo chmod 777 /usr/share/nginx/html/index.html
+	export IP=`ifconfig | grep inet | awk 'NR==1 {print $2}'`
+	sudo echo "<\!DOCTYPE html><html><head><title>My IP Address</title></head><body><h1>My IP Address</h1><p>The IP address of this machine is: $IP</p></body></html>" > /usr/share/nginx/html/index.html
+	sudo service nginx restart
+	EOF
 }
 
